@@ -22,10 +22,17 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
+    const jobsCollection = client.db("vixCarrer").collection("jobs");
+
     app.get("/", async (req, res) => {
       res.send("server is running");
+    });
+
+    // create a job
+    app.post("/all-jobs", async (req, res) => {
+      const jobData = req.body;
+      const result = await jobsCollection.insertOne(jobData);
+      res.send(result);
     });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
