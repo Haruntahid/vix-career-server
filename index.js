@@ -11,7 +11,12 @@ const cookieParser = require("cookie-parser");
 app.use(express.json());
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://vix-career.web.app/",
+      "https://vix-career.firebaseapp.com/",
+    ],
     credentials: true,
   })
 );
@@ -49,6 +54,7 @@ async function run() {
   try {
     const jobsCollection = client.db("vixCarrer").collection("jobs");
     const jobApplyCollection = client.db("vixCarrer").collection("job-Apply");
+    const companiesCollection = client.db("vixCarrer").collection("companies");
 
     app.get("/", async (req, res) => {
       res.send("server is running");
@@ -160,15 +166,21 @@ async function run() {
     });
 
     // get all job apply for a user by email from db
-    app.get("/my-apply/:email", verifyToken, async (req, res) => {
+    app.get("/my-apply/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email };
       const result = await jobApplyCollection.find(query).toArray();
       res.send(result);
     });
 
+    // get all companies data
+    app.get("/companies", async (req, res) => {
+      const result = await companiesCollection.find().toArray();
+      res.send(result);
+    });
+
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
