@@ -4,10 +4,35 @@ const cors = require("cors");
 const app = express();
 const port = process.env.PORT || 5000;
 require("dotenv").config();
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 
 // middlewares
 app.use(express.json());
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://localhost:5174"],
+    credentials: true,
+  })
+);
+app.use(cookieParser());
+
+// verify jwt middleware
+const verifyToken = async (req, res, next) => {
+  const token = req.cookies?.token;
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+  jwt.verify(token, process.env.ACESS_TOKEN_SECRET, (err, decoded) => {
+    // err
+    if (err) {
+      return res.status(401).send({ message: "unauthorized" });
+    }
+    console.log("value token", decoded);
+    req.user = decoded;
+    next();
+  });
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ffkzbfb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -27,6 +52,33 @@ async function run() {
 
     app.get("/", async (req, res) => {
       res.send("server is running");
+    });
+
+    // jwt Token
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACESS_TOKEN_SECRET, {
+        expiresIn: "30d",
+      });
+      res
+        .cookie("token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        })
+        .send({ success: true });
+    });
+
+    // Clear Jwt token for logout a user
+    app.get("/logout", (req, res) => {
+      res
+        .clearCookie("token", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+          maxAge: 0,
+        })
+        .send({ success: true });
     });
 
     // create a job
@@ -51,7 +103,7 @@ async function run() {
     });
 
     // get all jobs based on email
-    app.get("/all-jobs/:email", async (req, res) => {
+    app.get("/all-jobs/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { email };
       const result = await jobsCollection.find(query).toArray();
@@ -86,15 +138,14 @@ async function run() {
       const applyData = req.body;
 
       // check duplicatr req
-
-      // const query = {
-      //   email: applyData.email,
-      //   jobId: applyData.jobId,
-      // };
-      // const alreadyApply = await jobApplyCollection.find(query);
-      // if (alreadyApply) {
-      //   return res.status(400).send("You have already Applied on this Job");
-      // }
+      const query = {
+        email: applyData.email,
+        jobId: applyData.jobId,
+      };
+      const alreadyApply = await jobApplyCollection.findOne(query);
+      if (alreadyApply) {
+        return res.send("You have already Applied on this Job");
+      }
 
       const result = await jobApplyCollection.insertOne(applyData);
 
@@ -105,6 +156,14 @@ async function run() {
       const applyQuery = { _id: new ObjectId(applyData.jobId) };
       const updateCount = await jobsCollection.updateOne(applyQuery, updateDoc);
       console.log(updateCount);
+      res.send(result);
+    });
+
+    // get all job apply for a user by email from db
+    app.get("/my-apply/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const result = await jobApplyCollection.find(query).toArray();
       res.send(result);
     });
 
