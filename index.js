@@ -95,6 +95,21 @@ async function run() {
       res.send(result);
     });
 
+    // job count for pagination
+    app.get("/jobs", async (req, res) => {
+      const page = parseInt(req.query.page) || 0;
+      const size = parseInt(req.query.size) || 6;
+
+      const totalJobs = await jobsCollection.estimatedDocumentCount();
+      const jobs = await jobsCollection
+        .find()
+        .skip(page * size)
+        .limit(size)
+        .toArray();
+
+      res.send({ jobs, totalCount: totalJobs });
+    });
+
     // get all job data
     app.get("/all-jobs", async (req, res) => {
       const page = parseInt(req.query.page);
