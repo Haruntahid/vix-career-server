@@ -55,6 +55,7 @@ async function run() {
     const jobsCollection = client.db("vixCarrer").collection("jobs");
     const jobApplyCollection = client.db("vixCarrer").collection("job-Apply");
     const companiesCollection = client.db("vixCarrer").collection("companies");
+    const blogsCollection = client.db("vixCarrer").collection("blogs");
 
     app.get("/", async (req, res) => {
       res.send("server is running");
@@ -62,8 +63,8 @@ async function run() {
 
     // jwt Token
     app.post("/jwt", async (req, res) => {
-      const user = req.body;
-      const token = jwt.sign(user, process.env.ACESS_TOKEN_SECRET, {
+      const email = req.body;
+      const token = jwt.sign(email, process.env.ACESS_TOKEN_SECRET, {
         expiresIn: "30d",
       });
       res
@@ -96,7 +97,13 @@ async function run() {
 
     // get all job data
     app.get("/all-jobs", async (req, res) => {
-      const result = await jobsCollection.find().toArray();
+      const page = parseInt(req.query.page);
+      const size = parseInt(req.query.size);
+      const result = await jobsCollection
+        .find()
+        .skip(page * size)
+        .limit(size)
+        .toArray();
       res.send(result);
     });
 
@@ -150,7 +157,7 @@ async function run() {
       };
       const alreadyApply = await jobApplyCollection.findOne(query);
       if (alreadyApply) {
-        return res.send("You have already Applied on this Job");
+        return res.status(400).send("You have already Applied on this Job");
       }
 
       const result = await jobApplyCollection.insertOne(applyData);
@@ -176,6 +183,12 @@ async function run() {
     // get all companies data
     app.get("/companies", async (req, res) => {
       const result = await companiesCollection.find().toArray();
+      res.send(result);
+    });
+
+    // get all blog data
+    app.get("/blogs", async (req, res) => {
+      const result = await blogsCollection.find().toArray();
       res.send(result);
     });
 
