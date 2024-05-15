@@ -14,8 +14,8 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://vix-career.web.app/",
-      "https://vix-career.firebaseapp.com/",
+      "https://vix-career.web.app",
+      "https://vix-career.firebaseapp.com",
     ],
     credentials: true,
   })
@@ -95,14 +95,20 @@ async function run() {
       res.send(result);
     });
 
-    // job count for pagination
+    // all job for pagination
     app.get("/jobs", async (req, res) => {
       const page = parseInt(req.query.page) || 0;
       const size = parseInt(req.query.size) || 6;
+      const search = req.query.search;
+      // Building query conditionally
+      let query = {};
+      if (search) {
+        query.job_title = { $regex: search, $options: "i" };
+      }
 
       const totalJobs = await jobsCollection.estimatedDocumentCount();
       const jobs = await jobsCollection
-        .find()
+        .find(query)
         .skip(page * size)
         .limit(size)
         .toArray();
@@ -114,6 +120,7 @@ async function run() {
     app.get("/all-jobs", async (req, res) => {
       const page = parseInt(req.query.page);
       const size = parseInt(req.query.size);
+
       const result = await jobsCollection
         .find()
         .skip(page * size)
@@ -188,9 +195,13 @@ async function run() {
     });
 
     // get all job apply for a user by email from db
-    app.get("/my-apply/:email", async (req, res) => {
+    app.get("/my-apply/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
+      const filter = req.query.filter;
       const query = { email };
+      if (filter) {
+        query.jobCategory = filter;
+      }
       const result = await jobApplyCollection.find(query).toArray();
       res.send(result);
     });
